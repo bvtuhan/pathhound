@@ -1,0 +1,148 @@
+use std::collections::HashMap;
+
+use base64::{Engine, engine::general_purpose};
+use chrono::{DateTime, Local};
+use hmac::{Hmac, KeyInit, Mac};
+use reqwest::{
+    Url,
+    header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
+};
+use sha2::Sha256;
+
+type HmacSha256 = Hmac<Sha256>;
+
+#[allow(dead_code)]
+pub struct Client<T> {
+    key: T,
+    id: T,
+    base_url: Url,
+}
+
+#[allow(dead_code)]
+impl<T: AsRef<str>> Client<T> {
+    pub(crate) fn new(key: T, id: T, url: Option<impl reqwest::IntoUrl>) -> Self {
+        let url = url
+            .map(|u| u.into_url().unwrap())
+            .unwrap_or_else(|| Url::parse("http://127.0.0.1:8080").unwrap());
+
+        Self {
+            key,
+            id,
+            base_url: url,
+        }
+    }
+
+    pub(crate) fn get<Q, K, V>(
+        &self,
+        path: impl AsRef<str>,
+        query: Option<Q>,
+    ) -> HashMap<String, serde_json::Value>
+    where
+        Q: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let url = self.build_url(&path, query);
+
+        let client = reqwest::blocking::Client::builder()
+            .build()
+            .expect("Could not build the client");
+
+        let headers = self.create_header(
+            reqwest::Method::GET,
+            path,
+            &Local::now(),
+            reqwest::Body::default(),
+        );
+
+        client
+            .get(url)
+            .headers(headers)
+            .send()
+            .expect("Could not request GET")
+            .json::<HashMap<String, serde_json::Value>>()
+            .expect("Could not parse JSON into HashMap")
+    }
+
+    fn build_url<Q, K, V>(&self, path: &impl AsRef<str>, query: Option<Q>) -> Url
+    where
+        Q: IntoIterator<Item = (K, V)>,
+        K: AsRef<str>,
+        V: AsRef<str>,
+    {
+        let url = self
+            .base_url
+            .join(path.as_ref())
+            .expect("Could not append path to base");
+
+        if let Some(query) = query {
+            reqwest::Url::parse_with_params(url.as_str(), query)
+                .expect("Could not append the query parameters");
+        };
+        url
+    }
+
+    fn create_header(
+        &self,
+        method: reqwest::Method,
+        path: impl AsRef<str>,
+        date_time: &DateTime<Local>,
+        body: reqwest::Body,
+    ) -> HeaderMap {
+        let mut header_map = HeaderMap::new();
+
+        header_map.insert(USER_AGENT, HeaderValue::from_static("rust-sdk 001"));
+        header_map.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("bhesignature {}", self.id.as_ref()))
+                .expect("Could not create HeaderValue for authorization"),
+        );
+
+        header_map.insert(
+            "RequestDate",
+            HeaderValue::from_str(&date_time.to_rfc3339())
+                .expect("Could not create HeaderValue for request date"),
+        );
+
+        header_map.insert(
+            "Signature",
+            HeaderValue::from_str(&self.authorize(method, path, date_time, body))
+                .expect("Could not create HeaderValue for Signature"),
+        );
+
+        header_map.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+
+        header_map
+    }
+
+    fn authorize(
+        &self,
+        method: reqwest::Method,
+        path: impl AsRef<str>,
+        date_time: &DateTime<Local>,
+        body: reqwest::Body,
+    ) -> String {
+        let mut digester = HmacSha256::new_from_slice(self.key.as_ref().as_bytes())
+            .expect("Could not create the HmacSha256 from the key");
+
+        digester.update(format!("{}{}", method, path.as_ref()).as_bytes());
+
+        let mut digester_bytes = digester.finalize().into_bytes();
+
+        digester = HmacSha256::new_from_slice(&digester_bytes)
+            .expect("Could not create the HmacSha256 from the digester bytes");
+
+        digester.update(date_time.to_rfc3339()[..13].as_bytes());
+
+        digester_bytes = digester.finalize().into_bytes();
+
+        digester = HmacSha256::new_from_slice(&digester_bytes)
+            .expect("Could not create the HmacSha256 from the digester bytes");
+
+        digester.update(body.as_bytes().unwrap_or_default());
+
+        digester_bytes = digester.finalize().into_bytes();
+
+        general_purpose::STANDARD.encode(&digester_bytes)
+    }
+}
