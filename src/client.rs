@@ -10,6 +10,8 @@ use reqwest::{
 use serde_core::Serialize;
 use sha2::Sha256;
 
+use crate::ad_graph::{GraphResponse, Relationship};
+
 type HmacSha256 = Hmac<Sha256>;
 
 #[allow(dead_code)]
@@ -65,11 +67,8 @@ impl<T: AsRef<str>> Client<T> {
             .expect("Could not parse JSON into HashMap")
     }
 
-    pub(crate) fn execute_cypher_query(
-        &self,
-        path: impl AsRef<str>,
-        json: impl Serialize,
-    ) -> HashMap<String, serde_json::Value> {
+    pub(crate) fn execute_cypher_query(&self, json: impl Serialize) -> GraphResponse {
+        let path = "/api/v2/graphs/cypher";
         let url = self.build_url(&path, None::<Vec<(String, String)>>);
 
         let client = reqwest::blocking::Client::builder()
@@ -87,8 +86,19 @@ impl<T: AsRef<str>> Client<T> {
             .body(body)
             .send()
             .expect("Could not request GET")
-            .json::<HashMap<String, serde_json::Value>>()
+            .json::<GraphResponse>()
             .expect("Could not parse JSON into HashMap")
+    }
+
+    pub(crate) fn fetch_complete_ad_graph(
+        &self,
+    ) -> petgraph::Graph<crate::ad_graph::Node, Relationship> {
+        let json = serde_json::json!({
+            "query": "MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p",
+            "include_properties": false
+        });
+
+        self.execute_cypher_query(json).into()
     }
 
     fn build_url<Q, K, V>(&self, path: &impl AsRef<str>, query: Option<Q>) -> Url

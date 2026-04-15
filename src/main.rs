@@ -1,25 +1,18 @@
-use crate::client::Client;
+use petgraph::Graph;
 
+use crate::{ad_graph::Relationship, client::Client};
+
+pub(crate) mod ad_graph;
 pub(crate) mod client;
 
 fn main() {
     let client = Client::new(
-        "NMouy6tO67iTm7iYutX+6Ek4DuXPhXPmSawEQMWG2o+8h1r4nH8ZRA==",
-        "aa924e9e-e4e8-4387-8c8e-9ee4c1707563",
+        "mu8NveEKoTqqpF3/QjG6yBYOGllPoE5P8EQjHCr6V+shiXeV/HcczA==",
+        "95a03c4c-1605-41dc-ad25-16bf7f635cf4",
         None::<String>,
     );
 
-    let json = serde_json::json!({
-        "query": "MATCH (n:User) RETURN n LIMIT 100",
-        "include_properties": false
-    });
+    let graph = client.fetch_complete_ad_graph();
 
-    let req = client.execute_cypher_query("/api/v2/graphs/cypher", json);
-
-    // let req = client.get(
-    //     "/api/v2/bloodhound-users",
-    //     None::<std::iter::Empty<(String, String)>>, // i mean what the fuck?
-    // );
-
-    println!("{:#?}", req);
+    println!("{:#?}", graph);
 }
