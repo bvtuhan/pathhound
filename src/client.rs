@@ -7,6 +7,7 @@ use reqwest::{
     Url,
     header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
+use serde_core::Serialize;
 use sha2::Sha256;
 
 type HmacSha256 = Hmac<Sha256>;
@@ -52,12 +53,38 @@ impl<T: AsRef<str>> Client<T> {
             reqwest::Method::GET,
             path,
             &Local::now(),
-            reqwest::Body::default(),
+            &reqwest::blocking::Body::from(""),
         );
 
         client
             .get(url)
             .headers(headers)
+            .send()
+            .expect("Could not request GET")
+            .json::<HashMap<String, serde_json::Value>>()
+            .expect("Could not parse JSON into HashMap")
+    }
+
+    pub(crate) fn execute_cypher_query(
+        &self,
+        path: impl AsRef<str>,
+        json: impl Serialize,
+    ) -> HashMap<String, serde_json::Value> {
+        let url = self.build_url(&path, None::<Vec<(String, String)>>);
+
+        let client = reqwest::blocking::Client::builder()
+            .build()
+            .expect("Could not build the client");
+
+        let body_json = serde_json::to_vec(&json).expect("Failed to serialize request body");
+        let body = reqwest::blocking::Body::from(body_json);
+
+        let headers = self.create_header(reqwest::Method::POST, path, &Local::now(), &body);
+
+        client
+            .post(url)
+            .headers(headers)
+            .body(body)
             .send()
             .expect("Could not request GET")
             .json::<HashMap<String, serde_json::Value>>()
@@ -87,7 +114,7 @@ impl<T: AsRef<str>> Client<T> {
         method: reqwest::Method,
         path: impl AsRef<str>,
         date_time: &DateTime<Local>,
-        body: reqwest::Body,
+        body: &reqwest::blocking::Body,
     ) -> HeaderMap {
         let mut header_map = HeaderMap::new();
 
@@ -120,7 +147,7 @@ impl<T: AsRef<str>> Client<T> {
         method: reqwest::Method,
         path: impl AsRef<str>,
         date_time: &DateTime<Local>,
-        body: reqwest::Body,
+        body: &reqwest::blocking::Body,
     ) -> String {
         let mut digester = HmacSha256::new_from_slice(self.key.as_ref().as_bytes())
             .expect("Could not create the HmacSha256 from the key");
@@ -132,7 +159,7 @@ impl<T: AsRef<str>> Client<T> {
         digester = HmacSha256::new_from_slice(&digester_bytes)
             .expect("Could not create the HmacSha256 from the digester bytes");
 
-        digester.update(date_time.to_rfc3339()[..13].as_bytes());
+        digester.update(&date_time.to_rfc3339().as_bytes()[..13]);
 
         digester_bytes = digester.finalize().into_bytes();
 
@@ -143,6 +170,6 @@ impl<T: AsRef<str>> Client<T> {
 
         digester_bytes = digester.finalize().into_bytes();
 
-        general_purpose::STANDARD.encode(&digester_bytes)
+        general_purpose::STANDARD.encode(digester_bytes)
     }
 }

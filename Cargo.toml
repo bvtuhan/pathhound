@@ -9,5 +9,6 @@ chrono = "0.4.44"
 hmac = "0.13.0"
 petgraph = "0.8.3"
 reqwest = { version = "0.13.2", features = ["blocking", "json"] }
+serde_core = "1.0.228"
 serde_json = "1.0.149"
 sha2 = "0.11.0"

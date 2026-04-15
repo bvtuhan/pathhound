@@ -818,6 +818,7 @@ dependencies = [
  "hmac",
  "petgraph",
  "reqwest",
+ "serde_core",
  "serde_json",
  "sha2",
 ]
