@@ -26,16 +26,15 @@ pub(crate) struct Cli {
     pub(crate) construct_subgraph: bool,
 }
 
-pub(crate) fn fmt_output(
+pub(crate) fn fmt_table_print(
     graph: &ADGraph,
     from: &String,
     to: &String,
-    shortest_path: &(u32, &Vec<petgraph::prelude::NodeIndex>),
+    shortest_path: &(usize, Vec<petgraph::prelude::NodeIndex>),
 ) {
     let mut table = prettytable::Table::new();
-    let from = format!("From {from}");
-    let to = format!("To {to}");
-    table.add_row(row![from, "", "", to]);
+    let banner = format!("Starting Node: {from} --> Target Node: {to}");
+    table.add_row(row![banner]);
     let mut subtable = prettytable::Table::new();
     subtable.add_row(row!["Step", "Current Node", "Relationship", "Next Hop"]);
 

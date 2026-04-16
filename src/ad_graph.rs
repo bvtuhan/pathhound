@@ -44,7 +44,7 @@ pub(crate) enum NodeType {
     OU,
     RootCA,
     User,
-    AdLocalGroup,
+    ADLocalGroup,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Deserialize, Serialize, IntoStaticStr)]
@@ -435,7 +435,7 @@ pub(crate) trait ADGraphExt {
 
     fn find_node_index(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex>;
 
-    fn get_node(&self, value: impl AsRef<str>) -> Option<Node>;
+    fn get_node(&self, value: impl AsRef<str>) -> Option<&Node>;
 
     fn run_astar(
         &self,
@@ -527,14 +527,15 @@ impl ADGraphExt for ADGraph {
             .map(|rel| rel.weight().to_owned())
     }
 
-    fn get_node(&self, value: impl AsRef<str>) -> Option<Node> {
+    fn get_node(&self, value: impl AsRef<str>) -> Option<&Node> {
         self.raw_nodes()
             .iter()
-            .find_or_first(|node| {
+            .find(|node| {
                 let weight = &node.weight;
                 let value = value.as_ref();
-                weight.name.eq_ignore_ascii_case(value) || weight.name.eq_ignore_ascii_case(value)
+                weight.name.eq_ignore_ascii_case(value)
+                    || weight.object_id.eq_ignore_ascii_case(value)
             })
-            .map(|node| node.weight.clone())
+            .map(|node| &node.weight)
     }
 }
