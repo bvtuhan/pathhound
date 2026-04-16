@@ -1,36 +1,40 @@
 use std::collections::HashMap;
 
-use base64::{Engine, engine::general_purpose};
+use base64::{engine::general_purpose, Engine};
 use chrono::{DateTime, Local};
 use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{
+    header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT},
     Url,
-    header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
-use serde_core::Serialize;
+use serde::Serialize;
 use sha2::Sha256;
 
-use crate::ad_graph::{GraphResponse, Relationship};
+use crate::ad_graph::{ADGraph, GraphResponse};
 
 type HmacSha256 = Hmac<Sha256>;
 
-#[allow(dead_code)]
-pub struct Client<T> {
-    key: T,
-    id: T,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Client {
+    key: String,
+    id: String,
     base_url: Url,
 }
 
 #[allow(dead_code)]
-impl<T: AsRef<str>> Client<T> {
-    pub(crate) fn new(key: T, id: T, url: Option<impl reqwest::IntoUrl>) -> Self {
+impl Client {
+    pub(crate) fn new(
+        key: impl Into<String>,
+        id: impl Into<String>,
+        url: Option<impl reqwest::IntoUrl>,
+    ) -> Self {
         let url = url
             .map(|u| u.into_url().unwrap())
             .unwrap_or_else(|| Url::parse("http://127.0.0.1:8080").unwrap());
 
         Self {
-            key,
-            id,
+            key: key.into(),
+            id: id.into(),
             base_url: url,
         }
     }
@@ -90,15 +94,14 @@ impl<T: AsRef<str>> Client<T> {
             .expect("Could not parse JSON into HashMap")
     }
 
-    pub(crate) fn fetch_complete_ad_graph(
-        &self,
-    ) -> petgraph::Graph<crate::ad_graph::Node, Relationship> {
+    pub(crate) fn fetch_complete_ad_graph(&self, filter_non_traversable_edges: bool) -> ADGraph {
         let json = serde_json::json!({
             "query": "MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p",
             "include_properties": false
         });
 
-        self.execute_cypher_query(json).into()
+        self.execute_cypher_query(json)
+            .to_graph(filter_non_traversable_edges)
     }
 
     fn build_url<Q, K, V>(&self, path: &impl AsRef<str>, query: Option<Q>) -> Url
@@ -131,7 +134,7 @@ impl<T: AsRef<str>> Client<T> {
         header_map.insert(USER_AGENT, HeaderValue::from_static("rust-sdk 001"));
         header_map.insert(
             AUTHORIZATION,
-            HeaderValue::from_str(&format!("bhesignature {}", self.id.as_ref()))
+            HeaderValue::from_str(&format!("bhesignature {}", self.id))
                 .expect("Could not create HeaderValue for authorization"),
         );
 
@@ -159,7 +162,7 @@ impl<T: AsRef<str>> Client<T> {
         date_time: &DateTime<Local>,
         body: &reqwest::blocking::Body,
     ) -> String {
-        let mut digester = HmacSha256::new_from_slice(self.key.as_ref().as_bytes())
+        let mut digester = HmacSha256::new_from_slice(self.key.as_bytes())
             .expect("Could not create the HmacSha256 from the key");
 
         digester.update(format!("{}{}", method, path.as_ref()).as_bytes());
