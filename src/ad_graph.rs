@@ -1,11 +1,14 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 use strum_macros::{EnumString, IntoStaticStr};
 
 pub(crate) type ADGraph = petgraph::Graph<Node, Relationship>;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, EnumString, Deserialize, Serialize, IntoStaticStr)]
 #[allow(non_camel_case_types, dead_code)]
 pub(crate) enum NodeType {
     AIACA,
@@ -180,6 +183,13 @@ pub(crate) enum Relationship {
     WritePKIEnrollmentFlag,
     WritePKINameFlag,
     WriteSPN,
+}
+
+impl fmt::Display for Relationship {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // let string: &'static str = (self).into();
+        write!(f, "{:?}({})", &self, self.cost())
+    }
 }
 
 #[allow(dead_code)]
@@ -393,6 +403,14 @@ pub(crate) struct Node {
     pub(crate) object_id: String,
 }
 
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let node_type: &'static str = (&self.kind).into();
+        let tier_zero = if self.is_tier_zero { "(★)" } else { "" };
+        write!(f, "{}({}{})", node_type, self.name, tier_zero)
+    }
+}
+
 impl GraphResponse {
     pub(crate) fn to_graph(self, filter_non_traversable_edges: bool) -> ADGraph {
         let mut graph = ADGraph::new();
@@ -425,7 +443,9 @@ impl GraphResponse {
 }
 
 pub(crate) trait ADGraphExt {
-    fn create_optimal_subgraph(&self, start_nodes: &[&Node], target_nodes: &[&Node]) -> Self;
+    fn create_attack_graph(&self, start_nodes: &[&Node], target_nodes: &[&Node]) -> Self;
+
+    fn find_domain_admins(&self) -> Vec<&Node>;
 
     fn find_min_relationship(
         &self,
@@ -435,7 +455,11 @@ pub(crate) trait ADGraphExt {
 
     fn find_node_index(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex>;
 
-    fn get_node(&self, value: impl AsRef<str>) -> Option<&Node>;
+    fn find_node(&self, value: impl AsRef<str>) -> Option<&Node>;
+
+    fn find_tier_zero_nodes(&self) -> Vec<&Node>;
+
+    fn find_non_tier_zero_nodes(&self) -> Vec<&Node>;
 
     fn run_astar(
         &self,
@@ -445,10 +469,12 @@ pub(crate) trait ADGraphExt {
 }
 
 impl ADGraphExt for ADGraph {
-    fn create_optimal_subgraph(&self, start_nodes: &[&Node], target_nodes: &[&Node]) -> Self {
+    fn create_attack_graph(&self, start_nodes: &[&Node], target_nodes: &[&Node]) -> Self {
         let mut subgraph = Self::new();
         let mut node_map =
             HashMap::<petgraph::prelude::NodeIndex, petgraph::prelude::NodeIndex>::new();
+
+        let mut visited_edges = HashSet::new();
 
         for (source_node, target_node) in start_nodes.iter().cartesian_product(target_nodes) {
             let shortest_path = self.run_astar(source_node, target_node);
@@ -476,11 +502,15 @@ impl ADGraphExt for ADGraph {
                         }
                     };
 
-                    let min_rel =
-                        self.find_min_relationship(subgraph_source_idx, subgraph_target_idx);
+                    let min_rel = self.find_min_relationship(source_idx, target_idx);
 
                     if let Some(min_rel) = min_rel {
-                        subgraph.add_edge(subgraph_source_idx, subgraph_target_idx, min_rel);
+                        let src_target_rel =
+                            (subgraph_source_idx, subgraph_target_idx, min_rel.clone());
+                        if !visited_edges.contains(&src_target_rel) {
+                            visited_edges.insert(src_target_rel);
+                            subgraph.add_edge(subgraph_source_idx, subgraph_target_idx, min_rel);
+                        }
                     }
                 }
             }
@@ -527,7 +557,7 @@ impl ADGraphExt for ADGraph {
             .map(|rel| rel.weight().to_owned())
     }
 
-    fn get_node(&self, value: impl AsRef<str>) -> Option<&Node> {
+    fn find_node(&self, value: impl AsRef<str>) -> Option<&Node> {
         self.raw_nodes()
             .iter()
             .find(|node| {
@@ -537,5 +567,44 @@ impl ADGraphExt for ADGraph {
                     || weight.object_id.eq_ignore_ascii_case(value)
             })
             .map(|node| &node.weight)
+    }
+
+    fn find_domain_admins(&self) -> Vec<&Node> {
+        self.raw_nodes()
+            .iter()
+            .filter_map(|node| {
+                let weight = &node.weight;
+                if weight.object_id.ends_with("-512") {
+                    return Some(weight);
+                }
+                None
+            })
+            .collect_vec()
+    }
+
+    fn find_tier_zero_nodes(&self) -> Vec<&Node> {
+        self.raw_nodes()
+            .iter()
+            .filter_map(|node| {
+                let weight = &node.weight;
+                if weight.is_tier_zero {
+                    return Some(weight);
+                }
+                None
+            })
+            .collect_vec()
+    }
+
+    fn find_non_tier_zero_nodes(&self) -> Vec<&Node> {
+        self.raw_nodes()
+            .iter()
+            .filter_map(|node| {
+                let weight = &node.weight;
+                if !weight.is_tier_zero {
+                    return Some(weight);
+                }
+                None
+            })
+            .collect_vec()
     }
 }

@@ -2,8 +2,13 @@ use std::collections::HashMap;
 
 use clap::Parser;
 use itertools::Itertools;
+use petgraph::dot::Dot;
 
-use crate::{ad_graph::ADGraphExt, cli::fmt_table_print, client::Client};
+use crate::{
+    ad_graph::{ADGraphExt, Node},
+    cli::fmt_table_print,
+    client::Client,
+};
 
 pub(crate) mod ad_graph;
 pub(crate) mod cli;
@@ -27,21 +32,54 @@ fn main() {
 
     let graph = client.fetch_complete_ad_graph(!args.no_filter);
 
-    if args.construct_subgraph {
-        unimplemented!()
-    } else {
-        let start_nodes = &args
-            .source_nodes
-            .iter()
-            .map(|node_value| graph.get_node(node_value).expect("Could not find the node"))
-            .collect::<Vec<_>>();
-        let target_nodes = &args
-            .target_nodes
-            .iter()
-            .map(|node_value| graph.get_node(node_value).expect("Could not find the node"))
-            .collect::<Vec<_>>();
+    let mut start_nodes: Vec<&Node> = Vec::new();
+    let mut target_nodes: Vec<&Node> = Vec::new();
 
-        for (src, dest) in start_nodes.iter().cartesian_product(target_nodes) {
+    for src_node in args.source_nodes.iter() {
+        if "ALL-NON-TIER-0".eq(src_node) {
+            start_nodes.extend(graph.find_non_tier_zero_nodes());
+            continue;
+        }
+
+        let node = graph
+            .find_node(src_node)
+            .unwrap_or_else(|| panic!("Failed to find the node {} in graph", src_node));
+
+        start_nodes.push(node);
+
+        // TODO: Maybe duplicate check?
+    }
+
+    for target_node in args.target_nodes.iter() {
+        if "ALL-TIER-0".eq(target_node) {
+            target_nodes.extend(graph.find_tier_zero_nodes());
+            continue;
+        } else if "DOMAIN-ADMINS".eq(target_node) {
+            target_nodes.extend(graph.find_domain_admins());
+            continue;
+        }
+
+        let node = graph
+            .find_node(target_node)
+            .unwrap_or_else(|| panic!("Failed to find the node {} in graph", target_node));
+
+        target_nodes.push(node);
+
+        // TODO: Maybe duplicate check?
+    }
+
+    if args.attack_graph {
+        let attack_graph = graph.create_attack_graph(&start_nodes, &target_nodes);
+        let dot_body = format!("{}", Dot::with_config(&attack_graph, &[])).replacen(
+            "digraph {",
+            "digraph {\n    rankdir=LR;",
+            1,
+        );
+
+        std::fs::write("./attack-graph.dot", dot_body)
+            .expect("Failed to save the attack graph into the current working directory.");
+    } else {
+        for (src, dest) in start_nodes.iter().cartesian_product(&target_nodes) {
             let shortest_path = graph.run_astar(*src, *dest).unwrap_or_default();
 
             fmt_table_print(&graph, &src.name, &dest.name, &shortest_path);

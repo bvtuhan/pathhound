@@ -9,21 +9,25 @@ use crate::ad_graph::{ADGraph, ADGraphExt};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub(crate) struct Cli {
-    /// If this option is set, non-traversable edges will not be filtered out
+    /// Tool's default behavior is to filter out "non-traversable" edges. Set this flag to disable the default filtering
     #[arg(short='x', long, action = clap::ArgAction::SetTrue, default_value_t = false)]
     pub(crate) no_filter: bool,
 
-    #[arg(short, long, default_value="./credentials.json", value_hint=clap::ValueHint::FilePath)]
+    /// Path to the Bloodhound credentials file (in JSON format, {"key": ..., "id": ..., "url": <opt>})
+    #[arg(short, long="credentials", default_value="./credentials.json", value_hint=clap::ValueHint::FilePath)]
     pub(crate) credentials_path: PathBuf,
 
+    /// Source nodes (comma-separated, e.g. "A@COMP.COM,S-123-431-1234"; template: ALL-NON-TIER-0)
     #[arg(short, long, value_delimiter = ',')]
     pub(crate) source_nodes: Vec<String>,
 
+    /// Target nodes (comma-separated, e.g. "DOMAIN ADMINS@COMP.COM,S-123-431-1234"; templates: DOMAIN-ADMINS,ALL-TIER-0)
     #[arg(short, long, value_delimiter = ',')]
     pub(crate) target_nodes: Vec<String>,
 
-    #[arg(long, action = clap::ArgAction::SetTrue, default_value_t = false)]
-    pub(crate) construct_subgraph: bool,
+    /// Export subgraph containing only shortest-path nodes/edges as JSON without printing the table(s) to standard output
+    #[arg(short='a',long="export-attack-graph", action = clap::ArgAction::SetTrue, default_value_t = false)]
+    pub(crate) attack_graph: bool,
 }
 
 pub(crate) fn fmt_table_print(
@@ -43,13 +47,25 @@ pub(crate) fn fmt_table_print(
         let source = path[0];
         let dest = path[1];
 
-        let source_name = &graph.node_weight(source).unwrap().name;
-        let dest_name = &graph.node_weight(dest).unwrap().name;
+        let source_node = &graph.node_weight(source).unwrap();
+        let dest_node = &graph.node_weight(dest).unwrap();
+
+        let source_name = if source_node.is_tier_zero {
+            &format!("{}(★)", source_node.name)
+        } else {
+            &source_node.name
+        };
+
+        let dest_name = if dest_node.is_tier_zero {
+            &format!("{}(★)", dest_node.name)
+        } else {
+            &source_node.name
+        };
 
         let rel = graph.find_min_relationship(source, dest).unwrap();
         let rel_cost = rel.cost();
         let rel_str: &str = rel.into();
-        let rel_fmt = format!("-{}({})->", rel_cost, rel_str);
+        let rel_fmt = format!("-{}({})->", rel_str, rel_cost);
 
         subtable.add_row(row![step, source_name, rel_fmt, dest_name]);
 
