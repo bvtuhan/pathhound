@@ -1,6 +1,6 @@
 # Pathhound
 
-Simple attack path analyzer for Bloodhound that i developed for CTF machines. It fetches the graph data from the Bloodhound API and converts it into `petgraph` graph. It supports classic AD, ADCS, Azure/Entra-style nodes and edges, filters non-traversable relationships, and uses A* pathfinding to build reduced attack graphs between chosen source and target nodes.
+Simple attack path analyzer for Bloodhound that i developed for CTF machines. It fetches the graph data from the Bloodhound API and converts it into `petgraph`. It supports classic AD, ADCS, Azure/Entra-style nodes and edges, filters non-traversable relationships, and uses A* pathfinding to build reduced attack graphs between chosen source and target nodes.
 
 ## Usage
 
@@ -19,22 +19,47 @@ Options:
   -V, --version                         Print version
 ```
 
+You have to create a `credentials.json` file with the following format to be able to fetch the graph data from the Bloodhound API:
+
+```
+{
+  "key": "your_api_key",
+  "id": "your_api_id",
+  "url": "http://localhost:7474/db/data/transaction/commit" // optional
+}
+```
+The file must be located in the same directory as the executable. For a custom path, use the `-c` or `--credentials` flag.
+
+### Templates
+
+The tool supports some predefined templates for source and target nodes. For example, you can use `ALL-NON-TIER-0` as a source node template to select all non-tier-0 nodes in the graph, or `DOMAIN-ADMINS` as a target node template to select the "DOMAIN ADMINS" group in the graph. Example:
+
+```bash
+$ cargo run -r -- -s ALL-NON-TIER-0 -t DOMAIN-ADMINS
+```
+This finds all attack paths from any non-tier-0 node to any member of the "DOMAIN ADMINS" group. To get the graph representation of the attack paths, use the `-a` or `--export-attack-graph` flag:
+
+```bash
+$ cargo run -r -- -s ALL-NON-TIER-0 -t DOMAIN-ADMINS -a
+```
+
 ### Examples
 
 #### Table print to standard output
 
 ```bash
 $ cargo run -r -- -s "GMSA_SHS\$@PHANTOM.CORP, TARGET@PHANTOM.CORP" -t "DOMAIN ADMINS@PHANTOM.CORP"
-
+```
+```
 +------------------------------------------------------------------------------------------+
 | Starting Node: GMSA_SHS$@PHANTOM.CORP --> Target Node: DOMAIN ADMINS@PHANTOM.CORP        |
 +------------------------------------------------------------------------------------------+
 | +------+---------------------------+-------------------+-------------------------------+ |
 | | Step | Current Node              | Relationship      | Next Hop                      | |
 | +------+---------------------------+-------------------+-------------------------------+ |
-| | 1    | GMSA_SHS$@PHANTOM.CORP    | -MemberOf(0)->    | GMSA_SHS$@PHANTOM.CORP        | |
+| | 1    | GMSA_SHS$@PHANTOM.CORP    | -MemberOf(0)->    | DOMAIN USERS@PHANTOM.CORP     | |
 | +------+---------------------------+-------------------+-------------------------------+ |
-| | 2    | DOMAIN USERS@PHANTOM.CORP | -AdminTo(5)->     | DOMAIN USERS@PHANTOM.CORP     | |
+| | 2    | DOMAIN USERS@PHANTOM.CORP | -AdminTo(5)->     | FILESERVER01.PHANTOM.CORP     | |
 | +------+---------------------------+-------------------+-------------------------------+ |
 | | 3    | FILESERVER01.PHANTOM.CORP | -HasSession(11)-> | ROSHI@PHANTOM.CORP(★)         | |
 | +------+---------------------------+-------------------+-------------------------------+ |
@@ -47,9 +72,9 @@ $ cargo run -r -- -s "GMSA_SHS\$@PHANTOM.CORP, TARGET@PHANTOM.CORP" -t "DOMAIN A
 | +------+-------------------------------+-------------------+-------------------------------+ |
 | | Step | Current Node                  | Relationship      | Next Hop                      | |
 | +------+-------------------------------+-------------------+-------------------------------+ |
-| | 1    | TARGET@PHANTOM.CORP           | -MemberOf(0)->    | TARGET@PHANTOM.CORP           | |
+| | 1    | TARGET@PHANTOM.CORP           | -MemberOf(0)->    | DOMAIN USERS@PHANTOM.CORP     | |
 | +------+-------------------------------+-------------------+-------------------------------+ |
-| | 2    | DOMAIN USERS@PHANTOM.CORP     | -AdminTo(5)->     | DOMAIN USERS@PHANTOM.CORP     | |
+| | 2    | DOMAIN USERS@PHANTOM.CORP     | -AdminTo(5)->     | DF-WIN10-DEV01.PHANTOM.CORP   | |
 | +------+-------------------------------+-------------------+-------------------------------+ |
 | | 3    | DF-WIN10-DEV01.PHANTOM.CORP   | -HasSession(11)-> | ADMINISTRATOR@PHANTOM.CORP(★) | |
 | +------+-------------------------------+-------------------+-------------------------------+ |

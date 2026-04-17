@@ -63,7 +63,7 @@ pub(crate) fn fmt_table_print(
         let dest_name = if dest_node.is_tier_zero {
             &format!("{}(★)", dest_node.name)
         } else {
-            &source_node.name
+            &dest_node.name
         };
 
         let rel = graph.find_min_relationship(source, dest).unwrap();
