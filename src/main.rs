@@ -36,6 +36,7 @@ fn main() {
     let mut target_nodes: Vec<&Node> = Vec::new();
 
     for src_node in args.source_nodes.iter() {
+        let src_node = src_node.trim();
         if "ALL-NON-TIER-0".eq(src_node) {
             start_nodes.extend(graph.find_non_tier_zero_nodes());
             continue;
@@ -51,6 +52,7 @@ fn main() {
     }
 
     for target_node in args.target_nodes.iter() {
+        let target_node = target_node.trim();
         if "ALL-TIER-0".eq(target_node) {
             target_nodes.extend(graph.find_tier_zero_nodes());
             continue;
@@ -70,12 +72,7 @@ fn main() {
 
     if args.attack_graph {
         let attack_graph = graph.create_attack_graph(&start_nodes, &target_nodes);
-        let dot_body = format!("{}", Dot::with_config(&attack_graph, &[])).replacen(
-            "digraph {",
-            "digraph {\n    rankdir=LR;",
-            1,
-        );
-
+        let dot_body = format!("{}", Dot::with_config(&attack_graph, &[]));
         std::fs::write("./attack-graph.dot", dot_body)
             .expect("Failed to save the attack graph into the current working directory.");
     } else {

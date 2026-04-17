@@ -194,6 +194,7 @@ impl fmt::Display for Relationship {
 
 #[allow(dead_code)]
 impl Relationship {
+    /// Determines if a relationship is traversable for attack pathfinding purposes.
     pub(crate) fn is_traversable(&self) -> bool {
         matches!(
             self,
@@ -260,6 +261,9 @@ impl Relationship {
         )
     }
 
+    /// Custom cost function for relationships, used in attack pathfinding to prioritize certain relationships over others.
+    ///
+    /// Copied from <https://github.com/AD-Security/AD_Miner/blob/main/ad_miner/sources/modules/exploitability_ratings.json>
     pub fn cost(&self) -> usize {
         match self {
             Relationship::AddAllowedToAct => 40,
@@ -372,6 +376,8 @@ impl Relationship {
     }
 }
 
+/// Main data structure for the graph response from the API,
+/// containing nodes and edges representing the Active Directory environment.
 #[derive(Debug, Deserialize)]
 pub(crate) struct GraphResponse {
     pub data: GraphData,
@@ -412,6 +418,9 @@ impl fmt::Display for Node {
 }
 
 impl GraphResponse {
+    /// Converts the deserialized graph response into a petgraph::Graph (ADGraph). Nodes have the type [`Node`]
+    /// and edges have the type [`Relationship`]. The `filter_non_traversable_edges` parameter
+    // allows for excluding edges that are not traversable for attack pathfinding, which is set to `true` by default.
     pub(crate) fn to_graph(self, filter_non_traversable_edges: bool) -> ADGraph {
         let mut graph = ADGraph::new();
         let mut node_map: HashMap<&str, petgraph::prelude::NodeIndex> =
@@ -442,25 +451,39 @@ impl GraphResponse {
     }
 }
 
+/// Custom petgraph extension for custom attack graph functionalities
 pub(crate) trait ADGraphExt {
+    /// Creates a subgraph containing the cheapest attack paths between the specified start and target nodes.
+    ///
+    /// This method uses the A* algorithm to find the shortest paths based on the custom cost function
+    /// defined in the `Relationship` enum.
     fn create_attack_graph(&self, start_nodes: &[&Node], target_nodes: &[&Node]) -> Self;
 
+    /// Finds all nodes that are domain admins, which is determined by checking if the object ID ends with "-512".
     fn find_domain_admins(&self) -> Vec<&Node>;
 
+    /// Finds the cheapest relationship between two nodes, which is used in the `create_attack_graph` method
+    /// to ensure that only the most relevant edges are included in the attack graph.
     fn find_min_relationship(
         &self,
         start_node: petgraph::prelude::NodeIndex,
         target_node: petgraph::prelude::NodeIndex,
     ) -> Option<Relationship>;
 
+    /// Returns the index of a node in the graph if it exists,
+    /// which is used in the `run_astar` method to convert from node references to graph indices for pathfinding.
     fn find_node_index(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex>;
 
+    /// Returns a reference to the first node that matches the given value (either name or object ID).
     fn find_node(&self, value: impl AsRef<str>) -> Option<&Node>;
 
+    /// Finds all tier-zero nodes used for template-based attack pathfinding
     fn find_tier_zero_nodes(&self) -> Vec<&Node>;
 
+    /// Finds all non-tier-zero nodes used for template-based attack pathfinding
     fn find_non_tier_zero_nodes(&self) -> Vec<&Node>;
 
+    /// The main graph traversal algorithm for finding cheapest attack path between two nodes.
     fn run_astar(
         &self,
         start_node: &Node,

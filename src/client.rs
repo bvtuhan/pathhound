@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use base64::{engine::general_purpose, Engine};
+use base64::{Engine, engine::general_purpose};
 use chrono::{DateTime, Local};
 use hmac::{Hmac, KeyInit, Mac};
 use reqwest::{
-    header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, USER_AGENT},
     Url,
+    header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
 };
 use serde::Serialize;
 use sha2::Sha256;
@@ -14,6 +14,8 @@ use crate::ad_graph::{ADGraph, GraphResponse};
 
 type HmacSha256 = Hmac<Sha256>;
 
+/// Client data structure for communicating with the API. It holds the key, id and base url for the API.
+/// These values are read from a custom JSON file located in the current working directory (called `credentials.json`)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Client {
     key: String,
@@ -23,6 +25,7 @@ pub struct Client {
 
 #[allow(dead_code)]
 impl Client {
+    /// Creates a new client instance with given key and id. The url is optional and defaults to `http://127.0.0.1:8080` if not provided.
     pub(crate) fn new(
         key: impl Into<String>,
         id: impl Into<String>,
@@ -39,6 +42,7 @@ impl Client {
         }
     }
 
+    /// Simple GET request to the API. Currently not being used
     pub(crate) fn get<Q, K, V>(
         &self,
         path: impl AsRef<str>,
@@ -71,6 +75,7 @@ impl Client {
             .expect("Could not parse JSON into HashMap")
     }
 
+    /// Executes a Cypher query against the API and returns the response as a [`GraphResponse`] struct.
     pub(crate) fn execute_cypher_query(&self, json: impl Serialize) -> GraphResponse {
         let path = "/api/v2/graphs/cypher";
         let url = self.build_url(&path, None::<Vec<(String, String)>>);
@@ -94,6 +99,8 @@ impl Client {
             .expect("Could not parse JSON into HashMap")
     }
 
+    /// Fetches the complete Active-Directory graph from the server and returns it as an [`ADGraph`] struct.
+    /// The `filter_non_traversable_edges` parameter determines whether to filter out non-traversable edges from the graph.
     pub(crate) fn fetch_complete_ad_graph(&self, filter_non_traversable_edges: bool) -> ADGraph {
         let json = serde_json::json!({
             "query": "MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p",
@@ -104,6 +111,7 @@ impl Client {
             .to_graph(filter_non_traversable_edges)
     }
 
+    /// Builds a URL by joining the base URL with the provided path and appending query parameters if provided.
     fn build_url<Q, K, V>(&self, path: &impl AsRef<str>, query: Option<Q>) -> Url
     where
         Q: IntoIterator<Item = (K, V)>,
@@ -122,6 +130,7 @@ impl Client {
         url
     }
 
+    /// Creates the necessary headers for the API request, including the authorization header with the signature.
     fn create_header(
         &self,
         method: reqwest::Method,
@@ -155,6 +164,7 @@ impl Client {
         header_map
     }
 
+    /// Creates the necessary signature for the authentication header
     fn authorize(
         &self,
         method: reqwest::Method,

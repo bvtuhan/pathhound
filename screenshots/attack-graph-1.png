@@ -1,0 +1,18 @@
+digraph {
+    0 [ label = "User(GMSA_SHS$@PHANTOM.CORP)" ]
+    1 [ label = "Group(DOMAIN USERS@PHANTOM.CORP)" ]
+    2 [ label = "Computer(FILESERVER01.PHANTOM.CORP)" ]
+    3 [ label = "User(ROSHI@PHANTOM.CORP(★))" ]
+    4 [ label = "Group(DOMAIN ADMINS@PHANTOM.CORP(★))" ]
+    5 [ label = "User(TARGET@PHANTOM.CORP)" ]
+    6 [ label = "Computer(DF-WIN10-DEV01.PHANTOM.CORP)" ]
+    7 [ label = "User(ADMINISTRATOR@PHANTOM.CORP(★))" ]
+    0 -> 1 [ label = "MemberOf(0)" ]
+    1 -> 2 [ label = "AdminTo(5)" ]
+    2 -> 3 [ label = "HasSession(11)" ]
+    3 -> 4 [ label = "MemberOf(0)" ]
+    5 -> 1 [ label = "MemberOf(0)" ]
+    1 -> 6 [ label = "AdminTo(5)" ]
+    6 -> 7 [ label = "HasSession(11)" ]
+    7 -> 4 [ label = "MemberOf(0)" ]
+}

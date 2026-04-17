@@ -5,7 +5,7 @@ use prettytable::row;
 
 use crate::ad_graph::{ADGraph, ADGraphExt};
 
-/// Pathhound
+/// Pathhound -- Simple Bloodhound attack path enumerator
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub(crate) struct Cli {
@@ -25,11 +25,15 @@ pub(crate) struct Cli {
     #[arg(short, long, value_delimiter = ',')]
     pub(crate) target_nodes: Vec<String>,
 
-    /// Export subgraph containing only shortest-path nodes/edges as JSON without printing the table(s) to standard output
+    /// Export subgraph containing only attack-path nodes/edges as JSON without printing the table(s) to standard output
     #[arg(short='a',long="export-attack-graph", action = clap::ArgAction::SetTrue, default_value_t = false)]
     pub(crate) attack_graph: bool,
 }
 
+/// Prints a formatted table to standard output showing the shortest path from `from` to `to` in the given `graph`,
+/// along with the relationships and costs of each step in the path.
+///
+// The `shortest_path` parameter is directly forwarded from the output of `ADGraph::shortest_path`
 pub(crate) fn fmt_table_print(
     graph: &ADGraph,
     from: &String,
