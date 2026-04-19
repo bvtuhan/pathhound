@@ -96,6 +96,12 @@ cargo run -r -- -s "DAVID@PHANTOM.CORP, GUEST@PHANTOM.CORP, DA-NOPW@PHANTOM.CORP
 ```
 ![](screenshots/attack-graph-2.png)
 
+Another another example:
+```bash
+cargo run -r -- -s "DAVID@PHANTOM.CORP" -t "DOMAIN-ADMINS" -a
+```
+![](screenshots/attack-graph-3.png)
+
 ## TODO
 
 All contributions are welcome, but here are some of the things that I would like to add/fix in the future:
