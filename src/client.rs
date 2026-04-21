@@ -1,8 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Duration};
 
 use base64::{Engine, engine::general_purpose};
 use chrono::{DateTime, Local};
 use hmac::{Hmac, KeyInit, Mac};
+use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{
     Url,
     header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue, USER_AGENT},
@@ -102,13 +103,22 @@ impl Client {
     /// Fetches the complete Active-Directory graph from the server and returns it as an [`ADGraph`] struct.
     /// The `filter_non_traversable_edges` parameter determines whether to filter out non-traversable edges from the graph.
     pub(crate) fn fetch_complete_ad_graph(&self, filter_non_traversable_edges: bool) -> ADGraph {
+        let pb = ProgressBar::new_spinner();
+        pb.set_style(ProgressStyle::with_template("{spinner} [{elapsed_precise}] {msg}").unwrap());
+        pb.enable_steady_tick(Duration::from_millis(100));
+        pb.set_message("Fetching complete AD graph from server");
+
         let json = serde_json::json!({
             "query": "MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p",
             "include_properties": false
         });
 
-        self.execute_cypher_query(json)
-            .to_graph(filter_non_traversable_edges)
+        let result = self.execute_cypher_query(json);
+        pb.set_message("Building AD graph");
+        let graph = result.to_graph(filter_non_traversable_edges);
+        pb.finish_with_message("AD graph loaded");
+
+        graph
     }
 
     /// Builds a URL by joining the base URL with the provided path and appending query parameters if provided.

@@ -1,3 +1,4 @@
+use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -422,16 +423,29 @@ impl GraphResponse {
     /// and edges have the type [`Relationship`]. The `filter_non_traversable_edges` parameter
     // allows for excluding edges that are not traversable for attack pathfinding, which is set to `true` by default.
     pub(crate) fn to_graph(self, filter_non_traversable_edges: bool) -> ADGraph {
+        let total_work = (self.data.nodes.len() + self.data.edges.len()) as u64;
+        let pb = ProgressBar::new(total_work);
+        pb.set_style(
+            ProgressStyle::with_template(
+                "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {per_sec:>10} {msg}",
+            )
+            .unwrap()
+            .progress_chars("##-"),
+        );
+
         let mut graph = ADGraph::new();
         let mut node_map: HashMap<&str, petgraph::prelude::NodeIndex> =
             HashMap::with_capacity(self.data.nodes.len());
 
+        pb.set_message("Adding nodes");
         for (node_id, node_info) in &self.data.nodes {
             node_map
                 .entry(node_id)
                 .or_insert_with(|| graph.add_node(node_info.clone()));
+            pb.inc(1);
         }
 
+        pb.set_message("Adding edges");
         for edge in &self.data.edges {
             if filter_non_traversable_edges && !edge.kind.is_traversable() {
                 continue;
@@ -445,8 +459,10 @@ impl GraphResponse {
                 .expect("Expected target node to exist");
 
             let _ = graph.add_edge(*source_node, *target_node, edge.kind.to_owned());
+            pb.inc(1);
         }
 
+        pb.finish_with_message("Graph has been built");
         graph
     }
 }
@@ -499,6 +515,16 @@ impl ADGraphExt for ADGraph {
 
         let mut visited_edges = HashSet::new();
 
+        let pb = ProgressBar::new((start_nodes.len() * target_nodes.len()) as u64);
+        let sty = ProgressStyle::with_template(
+            "[{elapsed_precise}] {bar:40.cyan/blue} {pos:>7}/{len:7} {per_sec} ETA {eta_precise} {msg}",
+        )
+        .unwrap()
+        .progress_chars("##-");
+
+        pb.set_style(sty);
+        pb.println("Building the attack graph");
+
         for (source_node, target_node) in start_nodes.iter().cartesian_product(target_nodes) {
             let shortest_path = self.run_astar(source_node, target_node);
             if let Some((_, path)) = shortest_path {
@@ -537,7 +563,10 @@ impl ADGraphExt for ADGraph {
                     }
                 }
             }
+            pb.inc(1);
         }
+
+        pb.finish_with_message("Done with building the attack graph");
 
         subgraph
     }

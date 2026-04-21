@@ -72,14 +72,26 @@ fn main() {
 
     if args.attack_graph {
         let attack_graph = graph.create_attack_graph(&start_nodes, &target_nodes);
-        let dot_body = format!("{}", Dot::with_config(&attack_graph, &[]));
-        std::fs::write("./attack-graph.dot", dot_body)
-            .expect("Failed to save the attack graph into the current working directory.");
+
+        if attack_graph.edge_count() == 0 {
+            println!(
+                "Failed to create an attack graph with given start and target nodes. Presumably there is no path between any of the start and target nodes."
+            );
+            println!("No DOT file will be generated.");
+        } else {
+            let dot_body = format!("{}", Dot::with_config(&attack_graph, &[]));
+            std::fs::write("./attack-graph.dot", dot_body)
+                .expect("Failed to save the attack graph into the current working directory.");
+        }
     } else {
         for (src, dest) in start_nodes.iter().cartesian_product(&target_nodes) {
             let shortest_path = graph.run_astar(*src, *dest).unwrap_or_default();
 
-            fmt_table_print(&graph, &src.name, &dest.name, &shortest_path);
+            if !shortest_path.1.is_empty() {
+                fmt_table_print(&graph, &src.name, &dest.name, &shortest_path);
+            } else {
+                println!("No path found between {} and {}", &src.name, &dest.name);
+            }
         }
     }
 }

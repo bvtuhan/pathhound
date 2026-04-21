@@ -106,6 +106,8 @@ cargo run -r -- -s "DAVID@PHANTOM.CORP" -t "DOMAIN-ADMINS" -a
 
 All contributions are welcome, but here are some of the things that I would like to add/fix in the future:
 
+- [ ] Test cases 
 - [ ] I tested the tool on the example dataset provided by the [official `SpecterOps` team](https://github.com/SpecterOps/BloodHound/wiki/Example-Data). However, it has presumably missing node and edge types that the official dataset did not include.
-- [ ] To be able to fetch the complete AD graph, tool makes an API call to execute a custom Cypher query: `MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p`. However, this query is not optimized and may take a long time to execute on large datasets with millions of nodes and edges. Even the example dataset with ~15k nodes and ~80k edges takes about 30 seconds and consumes ~5GB of memory.
+- [ ] To be able to fetch the complete AD graph, tool makes an API call to execute a custom Cypher query: `MATCH p=(n)-[r]->(m) WHERE n<>m RETURN p`. However, this query is not optimized and may take a long time to execute on large datasets with millions of nodes and edges. Even the example dataset with ~15k nodes and ~12k edges takes about 16 seconds and consumes ~5GB of memory.
 - [ ] Code optimization. The current implementation is not fully optimized and contains some boilerplate code. 
+- [ ] Verbose and logging mechanism
