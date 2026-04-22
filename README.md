@@ -37,7 +37,7 @@ The tool supports some predefined templates for source and target nodes. For exa
 ```bash
 $ cargo run -r -- -s ALL-NON-TIER-0 -t DOMAIN-ADMINS
 ```
-This finds all attack paths from any non-tier-0 node to any member of the "DOMAIN ADMINS" group. To get the graph representation of the attack paths, use the `-a` or `--export-attack-graph` flag:
+This finds all attack paths from any non-tier-0 node to the all domain-admin nodes within the domain. To get the graph representation of the attack paths, use the `-a` or `--export-attack-graph` flag:
 
 ```bash
 $ cargo run -r -- -s ALL-NON-TIER-0 -t DOMAIN-ADMINS -a
