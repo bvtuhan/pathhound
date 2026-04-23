@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use itertools::Itertools;
-use prettytable::{Table, row};
+use prettytable::{row, Table};
 
 use crate::ad_graph::{ADGraph, ADGraphExt};
 
@@ -89,8 +89,8 @@ pub(crate) fn default_print(
         .expect("Failed not print the table to standard output");
 }
 
-pub(crate) fn centrality_print(graph: &ADGraph, centrality_rates: &Vec<Option<f64>>) {
-    let mut node_rate_list = centrality_rates.iter().enumerate().sorted_by(
+pub(crate) fn centrality_print(graph: &ADGraph, centrality_rates: &[Option<f64>]) {
+    let node_rate_list = centrality_rates.iter().enumerate().sorted_by(
         |(_, centrality_rate1), (_, centrality_rate2)| {
             centrality_rate1
                 .unwrap_or(f64::MIN)
@@ -104,7 +104,7 @@ pub(crate) fn centrality_print(graph: &ADGraph, centrality_rates: &Vec<Option<f6
 
     let mut step = 0;
 
-    while let Some((node_idx, centrality_rate)) = node_rate_list.next() {
+    for (node_idx, centrality_rate) in node_rate_list {
         // print only top 10
         if step == 10 {
             break;

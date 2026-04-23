@@ -85,16 +85,16 @@ fn main() {
                 .expect("Failed to save the attack graph into the current working directory.");
         }
     } else if args.centrality {
-        let output = betweenness_centrality(
+        let _output = betweenness_centrality(
             &graph.create_attack_graph(&start_nodes, &target_nodes),
+            false,
             true,
-            true,
-            200,
+            50,
         );
         todo!()
     } else {
         for (src, dest) in start_nodes.iter().cartesian_product(&target_nodes) {
-            let shortest_path = graph.run_astar(*src, *dest).unwrap_or_default();
+            let shortest_path = graph.run_astar(src, dest).unwrap_or_default();
 
             if !shortest_path.1.is_empty() {
                 default_print(&graph, &src.name, &dest.name, &shortest_path);
