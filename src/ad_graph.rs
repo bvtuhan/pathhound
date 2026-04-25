@@ -486,12 +486,11 @@ pub(crate) trait ADGraphExt {
         target_node: petgraph::prelude::NodeIndex,
     ) -> Option<Relationship>;
 
-    /// Returns the index of a node in the graph if it exists,
-    /// which is used in the `run_astar` method to convert from node references to graph indices for pathfinding.
-    fn find_node_index(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex>;
+    /// Returns the index of a node in the graph if it exists
+    fn find_index_by_node(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex>;
 
     /// Returns a reference to the first node that matches the given value (either name or object ID).
-    fn find_node(&self, value: impl AsRef<str>) -> Option<&Node>;
+    fn find_node_by_value(&self, value: impl AsRef<str>) -> Option<&Node>;
 
     /// Finds all tier-zero nodes used for template-based attack pathfinding
     fn find_tier_zero_nodes(&self) -> Vec<&Node>;
@@ -577,10 +576,10 @@ impl ADGraphExt for ADGraph {
         target_node: &Node,
     ) -> Option<(usize, Vec<petgraph::prelude::NodeIndex>)> {
         let start_idx = self
-            .find_node_index(start_node)
+            .find_index_by_node(start_node)
             .expect("Failed to find the index of the start node");
         let target_idx = self
-            .find_node_index(target_node)
+            .find_index_by_node(target_node)
             .expect("Failed to find the index of the target node");
 
         petgraph::algo::astar(
@@ -592,7 +591,7 @@ impl ADGraphExt for ADGraph {
         )
     }
 
-    fn find_node_index(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex> {
+    fn find_index_by_node(&self, node: &Node) -> Option<petgraph::prelude::NodeIndex> {
         self.node_indices()
             .find(|node_idx| node.eq(self.node_weight(*node_idx).unwrap()))
     }
@@ -609,7 +608,7 @@ impl ADGraphExt for ADGraph {
             .map(|rel| rel.weight().to_owned())
     }
 
-    fn find_node(&self, value: impl AsRef<str>) -> Option<&Node> {
+    fn find_node_by_value(&self, value: impl AsRef<str>) -> Option<&Node> {
         self.raw_nodes()
             .iter()
             .find(|node| {

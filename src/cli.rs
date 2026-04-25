@@ -1,7 +1,9 @@
+use core::f64;
 use std::path::PathBuf;
 
 use clap::Parser;
-use prettytable::row;
+use itertools::Itertools;
+use prettytable::{Table, row};
 
 use crate::ad_graph::{ADGraph, ADGraphExt};
 
@@ -28,13 +30,17 @@ pub(crate) struct Cli {
     /// Export subgraph containing only attack-path nodes/edges as JSON without printing the table(s) to standard output
     #[arg(short='a',long="export-attack-graph", action = clap::ArgAction::SetTrue, default_value_t = false)]
     pub(crate) attack_graph: bool,
+
+    /// Find the top-10 non-tier-0 nodes with the highest centrality between source and target nodes
+    #[arg(short='b',long, action = clap::ArgAction::SetTrue, default_value_t = false)]
+    pub(crate) centrality: bool,
 }
 
 /// Prints a formatted table to standard output showing the shortest path from `from` to `to` in the given `graph`,
 /// along with the relationships and costs of each step in the path.
 ///
-// The `shortest_path` parameter is directly forwarded from the output of `ADGraph::shortest_path`
-pub(crate) fn fmt_table_print(
+// The `shortest_path` parameter is directly forwarded from the output of `ADGraph::create_attack_graph`
+pub(crate) fn default_print(
     graph: &ADGraph,
     from: &String,
     to: &String,
@@ -77,6 +83,59 @@ pub(crate) fn fmt_table_print(
     }
 
     table.add_row(row![subtable]);
+
+    table
+        .print_tty(false)
+        .expect("Failed not print the table to standard output");
+}
+
+pub(crate) fn centrality_print(graph: &ADGraph, centrality_rates: &[Option<f64>]) {
+    let node_rate_list = centrality_rates.iter().enumerate().sorted_by(
+        |(_, centrality_rate1), (_, centrality_rate2)| {
+            centrality_rate2
+                .unwrap_or(f64::MIN)
+                .partial_cmp(&centrality_rate1.unwrap_or(f64::MIN))
+                .unwrap() // cannot panic
+        },
+    );
+
+    let mut table = Table::new();
+    table.add_row(row!["Node Name", "Centrality Rate"]);
+
+    let mut step = 0;
+
+    for (node_idx, centrality_rate) in node_rate_list {
+        if step == 10 {
+            // print only top 10
+            break;
+        }
+
+        let node_weight = graph
+            .node_weight(petgraph::prelude::NodeIndex::from(node_idx as u32))
+            .expect("Failed to locate the node with the given index");
+
+        if node_weight.is_tier_zero {
+            // skip tier 0 nodes
+            continue;
+        }
+
+        if let Some(centrality_rate) = centrality_rate {
+            // if we hit 0.0 centrality rate, we can stop printing
+            if centrality_rate.eq(&0.0) {
+                break;
+            }
+
+            let node_type: &'static str = (&node_weight.kind).into();
+            let name = format!("{}({})", node_type, node_weight.name);
+
+            table.add_row(row![name, centrality_rate]);
+            step += 1;
+            continue;
+        }
+
+        // if centrality_rate is None, it means the node is not on any path from source to target, so we can stop printing
+        break;
+    }
 
     table
         .print_tty(false)

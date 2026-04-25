@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use clap::Parser;
 use itertools::Itertools;
 use petgraph::dot::Dot;
+use rustworkx_core::centrality::betweenness_centrality;
 
 use crate::{
     ad_graph::{ADGraphExt, Node},
-    cli::fmt_table_print,
+    cli::{centrality_print, default_print},
     client::Client,
 };
 
@@ -43,7 +44,7 @@ fn main() {
         }
 
         let node = graph
-            .find_node(src_node)
+            .find_node_by_value(src_node)
             .unwrap_or_else(|| panic!("Failed to find the node {} in graph", src_node));
 
         start_nodes.push(node);
@@ -62,7 +63,7 @@ fn main() {
         }
 
         let node = graph
-            .find_node(target_node)
+            .find_node_by_value(target_node)
             .unwrap_or_else(|| panic!("Failed to find the node {} in graph", target_node));
 
         target_nodes.push(node);
@@ -83,12 +84,16 @@ fn main() {
             std::fs::write("./attack-graph.dot", dot_body)
                 .expect("Failed to save the attack graph into the current working directory.");
         }
+    } else if args.centrality {
+        let attack_graph = graph.create_attack_graph(&start_nodes, &target_nodes);
+        let centrality_rates = betweenness_centrality(&attack_graph, false, true, 50);
+        centrality_print(&attack_graph, &centrality_rates);
     } else {
         for (src, dest) in start_nodes.iter().cartesian_product(&target_nodes) {
-            let shortest_path = graph.run_astar(*src, *dest).unwrap_or_default();
+            let shortest_path = graph.run_astar(src, dest).unwrap_or_default();
 
             if !shortest_path.1.is_empty() {
-                fmt_table_print(&graph, &src.name, &dest.name, &shortest_path);
+                default_print(&graph, &src.name, &dest.name, &shortest_path);
             } else {
                 println!("No path found between {} and {}", &src.name, &dest.name);
             }
