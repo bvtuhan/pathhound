@@ -7,7 +7,7 @@ use rustworkx_core::centrality::betweenness_centrality;
 
 use crate::{
     ad_graph::{ADGraphExt, Node},
-    cli::default_print,
+    cli::{centrality_print, default_print},
     client::Client,
 };
 
@@ -85,13 +85,9 @@ fn main() {
                 .expect("Failed to save the attack graph into the current working directory.");
         }
     } else if args.centrality {
-        let _output = betweenness_centrality(
-            &graph.create_attack_graph(&start_nodes, &target_nodes),
-            false,
-            true,
-            50,
-        );
-        todo!()
+        let attack_graph = graph.create_attack_graph(&start_nodes, &target_nodes);
+        let centrality_rates = betweenness_centrality(&attack_graph, false, true, 50);
+        centrality_print(&attack_graph, &centrality_rates);
     } else {
         for (src, dest) in start_nodes.iter().cartesian_product(&target_nodes) {
             let shortest_path = graph.run_astar(src, dest).unwrap_or_default();

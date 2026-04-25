@@ -102,6 +102,39 @@ cargo run -r -- -s "DAVID@PHANTOM.CORP" -t "DOMAIN-ADMINS" -a
 ```
 ![](screenshots/attack-graph-3.png)
 
+#### Finding betweenness centrality of nodes in the attack graph
+
+This feature is not properly tested yet, but it can be used to find the most critical nodes in the attack graph. The centrality rate is calculated based on the number of attack paths that pass through a node. The higher the centrality rate, the more critical the node is. 
+
+```bash
+cargo run -r -- -s "ALL-NON-TIER-0" -t "ALL-TIER-0" -b
+```
+```
++-----------------------------------------+----------------------+
+| Node Name                               | Centrality Rate      |
++-----------------------------------------+----------------------+
+| Group(DOMAIN USERS@PHANTOM.CORP)        | 0.1018506006109723   |
++-----------------------------------------+----------------------+
+| Computer(ADMINSERVER01.PHANTOM.CORP)    | 0.09014562374171099  |
++-----------------------------------------+----------------------+
+| User(T1_FABIAN@PHANTOM.CORP)            | 0.04499448562773101  |
++-----------------------------------------+----------------------+
+| Group(EVERYONE@PHANTOM.CORP)            | 0.04309586631486367  |
++-----------------------------------------+----------------------+
+| Group(AUTHENTICATED USERS@PHANTOM.CORP) | 0.0391241222375787   |
++-----------------------------------------+----------------------+
+| Group(DOMAIN COMPUTERS@PHANTOM.CORP)    | 0.0371906018344013   |
++-----------------------------------------+----------------------+
+| Computer(FILESERVER01.PHANTOM.CORP)     | 0.01582956150692057  |
++-----------------------------------------+----------------------+
+| Computer(DF-WIN10-DEV01.PHANTOM.CORP)   | 0.0113094430047697   |
++-----------------------------------------+----------------------+
+| Group(TIER2SUPPORT@PHANTOM.CORP)        | 0.010226019460847958 |
++-----------------------------------------+----------------------+
+| OU(COMPUTERS@PHANTOM.CORP)              | 0.008208736440926415 |
++-----------------------------------------+----------------------+
+```
+
 ## TODO
 
 All contributions are welcome, but here are some of the things that I would like to add/fix in the future:
