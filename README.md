@@ -14,7 +14,8 @@ Options:
   -c, --credentials <CREDENTIALS_PATH>  Path to the Bloodhound credentials file (in JSON format, {"key": ..., "id": ..., "url": <opt>}) [default: ./credentials.json]
   -s, --source-nodes <SOURCE_NODES>     Source nodes (comma-separated, e.g. "A@COMP.COM,S-123-431-1234"; template: ALL-NON-TIER-0)
   -t, --target-nodes <TARGET_NODES>     Target nodes (comma-separated, e.g. "DOMAIN ADMINS@COMP.COM,S-123-431-1234"; templates: DOMAIN-ADMINS,ALL-TIER-0)
-  -a, --export-attack-graph             Export subgraph containing only attack-path nodes/edges as DOT file without printing the table(s) to standard output
+  -a, --export-attack-graph             Export subgraph containing only attack-path nodes/edges as JSON without printing the table(s) to standard output
+  -b, --centrality                      Find the top-10 non-tier-0 nodes with the highest centrality between source and target nodes
   -h, --help                            Print help
   -V, --version                         Print version
 ```
